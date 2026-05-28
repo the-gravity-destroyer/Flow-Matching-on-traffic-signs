@@ -1,0 +1,33 @@
+# Virtuelle Umgebungen (Dein aktuelles Problem)
+/.venv/
+
+# Python Bytecode & Caches
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# IDE- & Editor-Konfigurationen
+.vscode/
+.idea/
+
+# Betriebssystem-Dateien
+.DS_Store
+Thumbs.db
+
+# Test- & Coverage-Berichte
+.pytest_cache/
+htmlcov/
+.coverage
+
+# Build- & Distributions-Artefakte
+build/
+dist/
+*.egg-info/
+*.spec
+
+# Ignoriere PyTorch Checkpoints (die sind auch groß)
+*.ckpt
+*.pth
+
+/lightning_logs
