@@ -1,0 +1,7 @@
+defaults:
+  - data: gtsrb
+  - model: flow
+  - trainer: default
+  - _self_
+
+seed: 42

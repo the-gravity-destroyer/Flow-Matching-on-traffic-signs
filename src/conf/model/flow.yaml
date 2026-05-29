@@ -1,0 +1,4 @@
+_target_: flow_module.Flow
+lr: 1e-4
+in_channels: 3
+image_size: 32

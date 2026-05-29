@@ -8,9 +8,7 @@ import torch
 import lightning as pl
 from torchvision import transforms
 
-class BaseDataModule(pl.LightningDataModule):
-    """Behebt den Pickle-Fehler für Python 3.14+ (forkserver)."""
-    
+class BaseDataModule(pl.LightningDataModule):    
     def __init__(self, data_dir, batch_size, num_workers, variant, num_classes):
         super().__init__()
         self.save_hyperparameters()
