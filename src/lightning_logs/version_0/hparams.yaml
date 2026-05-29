@@ -3,7 +3,8 @@ in_channels: 3
 image_size: 32
 num_classes: 43
 cond_drop_prob: 0.1
+stats_path: null
 data_dir: /home/leonis/project_datasets
-batch_size: 64
+batch_size: 256
 num_workers: 4
 variant: flow

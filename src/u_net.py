@@ -24,36 +24,40 @@ class UNet(nn.Module):
         in_channels: int = 3,
         out_channels: int = 3,
         num_classes: int = 43,
-        t_emb_dim: int = 128,
+        t_emb_dim: int = 256,      # war 128
     ):
         super().__init__()
         self.num_classes = num_classes
 
-        # Zeit-Embedding
         self.t_emb = nn.Sequential(
             nn.Linear(1, t_emb_dim), nn.SiLU(),
             nn.Linear(t_emb_dim, t_emb_dim)
         )
-        # Klassen-Embedding
         self.y_emb = nn.Embedding(num_classes + 1, t_emb_dim)
         self.null_token = num_classes
 
-        # Encoder
-        self.enc1 = self._block(in_channels, 32)
-        self.enc2 = self._block(32, 64)
-        self.pool = nn.MaxPool2d(2)
+        # Encoder — doppelte Kanalzahl
+        self.enc1 = self._block(in_channels, 64)    # war 32
+        self.enc2 = self._block(64, 128)            # war 64
+        self.enc3 = self._block(128, 256)           # neu: dritte Ebene
+        self.pool = nn.MaxPool2d(2)                 # 32→16→8→4
 
         # Bottleneck + Attention
-        self.bottleneck = self._block(64 + t_emb_dim, 128)
-        self.attn = SelfAttention(128, num_heads=4)   # neu
+        self.bottleneck = self._block(256 + t_emb_dim, 512)  # war 64+, 128
+        self.attn = SelfAttention(512, num_heads=8)           # war 128, 4
 
         # Decoder
-        self.up1  = nn.ConvTranspose2d(128, 64, 2, stride=2)
-        self.dec1 = self._block(128, 64)
-        self.up0  = nn.ConvTranspose2d(64, 32, 2, stride=2)
-        self.dec0 = self._block(64, 32)
+        self.up2  = nn.ConvTranspose2d(512, 256, 2, stride=2)  # 4→8
+        self.dec2 = self._block(512, 256)
+        self.attn_dec2 = SelfAttention(256, num_heads=4)        # Attention auch hier
 
-        self.out  = nn.Conv2d(32, out_channels, 1)
+        self.up1  = nn.ConvTranspose2d(256, 128, 2, stride=2)  # 8→16
+        self.dec1 = self._block(256, 128)
+
+        self.up0  = nn.ConvTranspose2d(128, 64, 2, stride=2)   # 16→32
+        self.dec0 = self._block(128, 64)
+
+        self.out  = nn.Conv2d(64, out_channels, 1)
 
     def _block(self, in_c, out_c):
         return nn.Sequential(
@@ -74,15 +78,23 @@ class UNet(nn.Module):
             y = torch.full((B,), self.null_token, device=x.device, dtype=torch.long)
         emb = emb + self.y_emb(y)
 
-        e1 = self.enc1(x)
-        e2 = self.enc2(self.pool(e1))
-        e3 = self.pool(e2)
+        # Encoder
+        e1 = self.enc1(x)               # [B, 64,  32, 32]
+        e2 = self.enc2(self.pool(e1))   # [B, 128, 16, 16]
+        e3 = self.enc3(self.pool(e2))   # [B, 256,  8,  8]
+        e4 = self.pool(e3)              # [B, 256,  4,  4]
 
-        h, w = e3.shape[-2:]
+        # Bottleneck
+        h, w = e4.shape[-2:]
         emb_map = emb.view(B, -1, 1, 1).expand(B, -1, h, w)
-        bn = self.bottleneck(torch.cat([e3, emb_map], dim=1))
-        bn = self.attn(bn)                             # neu
+        bn = self.bottleneck(torch.cat([e4, emb_map], dim=1))  # [B, 512, 4, 4]
+        bn = self.attn(bn)
 
-        d1 = self.dec1(torch.cat([self.up1(bn), e2], dim=1))
-        d0 = self.dec0(torch.cat([self.up0(d1), e1], dim=1))
+        # Decoder
+        d2 = self.dec2(torch.cat([self.up2(bn), e3], dim=1))  # [B, 256, 8, 8]
+        d2 = self.attn_dec2(d2)
+
+        d1 = self.dec1(torch.cat([self.up1(d2), e2], dim=1))  # [B, 128, 16, 16]
+        d0 = self.dec0(torch.cat([self.up0(d1), e1], dim=1))  # [B, 64,  32, 32]
+
         return self.out(d0)

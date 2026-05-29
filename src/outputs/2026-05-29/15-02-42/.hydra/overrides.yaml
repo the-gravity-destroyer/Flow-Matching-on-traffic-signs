@@ -1,0 +1,2 @@
+- trainer.max_epochs=800
+- +ckpt_path="/home/leonis/projects/fm_gtsrb/Flow-Matching-on-GTSRB/src/lightning_logs/version_6/checkpoints/epoch=399-step=150000.ckpt"

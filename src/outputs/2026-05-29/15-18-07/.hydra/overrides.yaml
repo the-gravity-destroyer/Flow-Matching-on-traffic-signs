@@ -1,0 +1,3 @@
+- trainer.max_epochs=400
+- model.stats_path=null
+- data.batch_size=256
