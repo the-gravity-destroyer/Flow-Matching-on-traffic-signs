@@ -5,3 +5,4 @@ defaults:
   - _self_
 
 seed: 42
+dataset_name: gtsrb     # wird beim Wechsel mit überschrieben
