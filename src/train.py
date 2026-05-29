@@ -29,11 +29,14 @@ def main(cfg: DictConfig):
         out_dir = hydra.utils.get_original_cwd()
         fname = os.path.join(out_dir, f"samples_{cfg.dataset_name}.png")
 
-        # Bestes Checkpoint laden
         best_ckpt = trainer.checkpoint_callback.best_model_path
         model = Flow.load_from_checkpoint(best_ckpt)
         model.eval()
         model.to("cuda" if torch.cuda.is_available() else "cpu")
+
+        # prior auch nach dem Laden auf Device verschieben
+        if model.prior is not None:
+            model.prior.to(model.device)
 
         y = torch.randint(0, model.hparams.num_classes, (64,), device=model.device)
         model.sample(y=y, n=64, filename=fname)

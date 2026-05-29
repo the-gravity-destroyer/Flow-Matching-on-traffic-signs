@@ -63,11 +63,18 @@ class Flow(pl.LightningModule):
     @torch.no_grad()
     def sample(self, y=None, n: int = 64, filename: str = "samples.png"):
         solver = ODESolver(velocity_model=self)
-        x0 = torch.randn(
-            n, self.hparams.in_channels,
-            self.hparams.image_size, self.hparams.image_size,
-            device=self.device,
-        )
+
+        # CPD-Prior beim Sampling nutzen wenn vorhanden UND y gegeben
+        if self.prior is not None and y is not None:
+            self.prior.to(self.device)
+            x0 = self.prior.sample(y)
+        else:
+            x0 = torch.randn(
+                n, self.hparams.in_channels,
+                self.hparams.image_size, self.hparams.image_size,
+                device=self.device,
+            )
+
         extras = {} if y is None else {"y": y}
         x1 = solver.sample(x_init=x0, method="midpoint", step_size=1 / 100, **extras)
         grid = make_grid(x1.clamp(0, 1), nrow=8, padding=2)
@@ -75,4 +82,18 @@ class Flow(pl.LightningModule):
         return x1
 
     def configure_optimizers(self):
-        return torch.optim.Adam(self.parameters(), lr=self.hparams.lr)
+        optimizer = torch.optim.Adam(self.parameters(), lr=self.hparams.lr)
+        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+            optimizer,
+            mode="min",
+            factor=0.5,
+            patience=10,
+            min_lr=1e-6,
+        )
+        return {
+            "optimizer": optimizer,
+            "lr_scheduler": {
+                "scheduler": scheduler,
+                "monitor": "train_loss",
+            }
+        }
