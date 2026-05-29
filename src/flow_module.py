@@ -9,6 +9,7 @@ from flow_matching.path.scheduler import CondOTScheduler
 from flow_matching.solver import ODESolver
 
 from u_net import UNet
+from cpd_prior import CPDPrior
 
 
 class Flow(pl.LightningModule):
@@ -18,7 +19,8 @@ class Flow(pl.LightningModule):
         in_channels: int = 3,
         image_size: int = 32,
         num_classes: int = 43,
-        cond_drop_prob: float = 0.1,   # für CFG; 0.0 = reines Conditioning
+        cond_drop_prob: float = 0.1,
+        stats_path: str = None,
     ):
         super().__init__()
         self.save_hyperparameters()
@@ -28,23 +30,32 @@ class Flow(pl.LightningModule):
             out_channels=in_channels,
             num_classes=num_classes,
         )
+        self.prior = CPDPrior(stats_path) if stats_path else None
+
+    def on_fit_start(self):
+        if self.prior is not None:
+            self.prior.to(self.device)
 
     def forward(self, x: Tensor, t: Tensor, y: Tensor = None, **kwargs) -> Tensor:
         return self.net(x, t, y)
 
     def training_step(self, batch, batch_idx):
-        x1, y = batch                         
-        x0 = torch.randn_like(x1)
-        t = torch.rand(x1.size(0), device=self.device)
-        sample = self.path.sample(t=t, x_0=x0, x_1=x1)
+        x1, y = batch
 
-        # Conditioning-Dropout: manche Samples auf Null-Token setzen (CFG-Training)
+        if self.prior is not None:
+            x0 = self.prior.sample(y)
+        else:
+            x0 = torch.randn_like(x1)
+
+        t = torch.rand(x1.size(0), device=self.device)
+
+        y_in = y.clone()
         if self.hparams.cond_drop_prob > 0:
             drop = torch.rand(y.size(0), device=self.device) < self.hparams.cond_drop_prob
-            y = y.clone()
-            y[drop] = self.net.null_token
+            y_in[drop] = self.net.null_token
 
-        pred = self(sample.x_t, sample.t, y)
+        sample = self.path.sample(t=t, x_0=x0, x_1=x1)
+        pred = self(sample.x_t, sample.t, y_in)
         loss = (pred - sample.dx_t).pow(2).mean()
         self.log("train_loss", loss, prog_bar=True)
         return loss

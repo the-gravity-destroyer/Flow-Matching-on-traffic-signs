@@ -2,3 +2,6 @@ _target_: flow_module.Flow
 lr: 1e-4
 in_channels: 3
 image_size: 32
+num_classes: 43
+cond_drop_prob: 0.1
+stats_path: class_stats/gtsrb.pt

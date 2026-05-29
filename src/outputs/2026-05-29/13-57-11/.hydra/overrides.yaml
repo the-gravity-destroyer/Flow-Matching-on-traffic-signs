@@ -1,0 +1,2 @@
+- trainer.max_epochs=800
+- +ckpt_path="lightning_logs/version_2/checkpoints/epoch=399-step=150000.ckpt"

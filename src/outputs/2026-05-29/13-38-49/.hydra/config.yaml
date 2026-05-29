@@ -1,0 +1,20 @@
+data:
+  _target_: data_module.GTSRBDataModule
+  data_dir: /home/leonis/project_datasets
+  batch_size: 64
+  num_workers: 4
+  variant: flow
+model:
+  _target_: flow_module.Flow
+  lr: 0.0001
+  in_channels: 3
+  image_size: 32
+trainer:
+  _target_: lightning.Trainer
+  max_epochs: 400
+  accelerator: auto
+  devices: auto
+  precision: 32
+  log_every_n_steps: 20
+seed: 42
+dataset_name: gtsrb
